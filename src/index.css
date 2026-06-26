@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+    --color-bg: var(--background);
+    --color-surface: var(--surface);
+    --color-surface-muted: var(--surface-muted);
+    --color-border-custom: var(--border-color);
+    --color-text-main: var(--text-main);
+    --color-text-muted: var(--text-muted);
+    --color-brand: var(--accent);
+    --color-brand-soft: var(--accent-soft);
+}
+
+:root {
+    --background: oklch(0.98 0.004 70);
+    --surface: oklch(1.0 0.0 0);
+    --surface-muted: oklch(0.96 0.005 70);
+    --border-color: oklch(0.93 0.006 70);
+    --text-main: oklch(0.20 0.01 70);
+    --text-muted: oklch(0.52 0.015 70);
+    --accent: oklch(0.48 0.062 150);
+    --accent-soft: oklch(0.94 0.015 150);
+}
+
+:root.dark {
+    --background: oklch(0.12 0.008 150);
+    --surface: oklch(0.16 0.01 150);
+    --surface-muted: oklch(0.20 0.012 150);
+    --border-color: oklch(0.24 0.015 150);
+    --text-main: oklch(0.94 0.008 150);
+    --text-muted: oklch(0.68 0.015 150);
+    --accent: oklch(0.78 0.06 150);
+    --accent-soft: oklch(0.22 0.02 150);
+}
+
+body {
+    background-color: var(--background);
+    color: var(--text-main);
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
