@@ -241,16 +241,39 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
   // 3. RICH GRID VIEW MODE (Default)
   return (
     <article className="group bg-surface border border-border-custom hover:border-brand/40 rounded-xl overflow-hidden flex flex-col h-[320px] transition-all duration-200 hover:shadow-sm">
-      {/* Cover Image */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-muted">
-        <img
-          src={bookmark.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=60'}
-          alt={bookmark.title}
-          loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-101"
+      {/* Cover Image or Logo-Centric Header */}
+      <div 
+        className="relative aspect-[16/9] w-full overflow-hidden flex items-center justify-center bg-surface-muted border-b border-border-custom/80"
+        style={{
+          background: `linear-gradient(135deg, var(--surface-muted) 0%, ${collection?.color ? `${collection.color}18` : 'var(--accent-soft)'} 100%)`
+        }}
+      >
+        {/* Subtle background glow */}
+        <div 
+          className="absolute w-24 h-24 rounded-full filter blur-xl opacity-20"
+          style={{ backgroundColor: collection?.color || 'var(--accent)' }}
         />
+
+        {/* Floating Glassmorphic Logo Container */}
+        <div className="relative z-10 w-16 h-16 rounded-2xl bg-surface/90 backdrop-blur-md border border-border-custom/80 shadow-md flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+          {bookmark.faviconUrl ? (
+            <img
+              src={bookmark.faviconUrl}
+              alt=""
+              className="w-8 h-8 object-contain"
+              onError={(e) => { 
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="text-brand">
+              {getTypeIcon(bookmark.type)}
+            </div>
+          )}
+        </div>
+
         {/* Hover overlay with action */}
-        <div className="absolute inset-0 bg-background/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+        <div className="absolute inset-0 bg-background/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
           <a
             href={bookmark.url}
             target="_blank"
@@ -264,14 +287,14 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
         </div>
 
         {/* Content Type Badge */}
-        <div className="absolute top-3 left-3 px-2 py-1 bg-surface/90 backdrop-blur-sm border border-border-custom rounded-lg flex items-center gap-1.5 shadow-sm">
+        <div className="absolute top-3 left-3 px-2 py-1 bg-surface/90 backdrop-blur-sm border border-border-custom rounded-lg flex items-center gap-1.5 shadow-sm z-10">
           {getTypeIcon(bookmark.type)}
         </div>
 
         {/* Collection Badge */}
         {collection && (
           <span
-            className="absolute bottom-3 left-3 px-2 py-0.5 rounded-md text-[10px] font-medium backdrop-blur-sm border shadow-sm"
+            className="absolute bottom-3 left-3 px-2 py-0.5 rounded-md text-[10px] font-medium backdrop-blur-sm border shadow-sm z-10"
             style={{
               backgroundColor: `${collection.color}d0`,
               borderColor: `${collection.color}30`,
