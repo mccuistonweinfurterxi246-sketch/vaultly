@@ -17,6 +17,16 @@ export interface Collection {
   iconName: string;
 }
 
+export interface Credential {
+  id: string;
+  title: string;
+  websiteUrl?: string;
+  usernameEmail: string;
+  passwordEncrypted: string; // Stored in plain text for localStorage simplicity, but variable named to indicate intent
+  notes?: string;
+  createdAt: string;
+}
+
 export interface Bookmark {
   id: string;
   collectionId: string;

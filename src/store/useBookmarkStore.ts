@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Bookmark, Collection } from '../utils/mockData';
+import type { Bookmark, Collection, Credential } from '../utils/mockData';
 import { mockBookmarks, mockCollections } from '../utils/mockData';
 
 interface BookmarkState {
   bookmarks: Bookmark[];
   collections: Collection[];
-  selectedCollectionId: string; // 'all', 'favorites', 'read-later', 'archive', or col_id
+  credentials: Credential[];
+  selectedCollectionId: string; // 'all', 'favorites', 'read-later', 'archive', 'credentials', or col_id
   selectedTag: string | null;
   searchQuery: string;
   viewMode: 'grid' | 'compact' | 'list';
@@ -24,6 +25,11 @@ interface BookmarkState {
   // Collection Actions
   addCollection: (collection: Omit<Collection, 'id'>) => void;
   deleteCollection: (id: string) => void;
+
+  // Credential Actions
+  addCredential: (credential: Omit<Credential, 'id' | 'createdAt'>) => void;
+  deleteCredential: (id: string) => void;
+  updateCredential: (id: string, updates: Partial<Credential>) => void;
   
   // Filter Actions
   setSelectedCollectionId: (id: string) => void;
@@ -38,6 +44,26 @@ export const useBookmarkStore = create<BookmarkState>()(
     (set) => ({
       bookmarks: mockBookmarks,
       collections: mockCollections,
+      credentials: [
+        {
+          id: "cred_1",
+          title: "GitHub Account",
+          websiteUrl: "https://github.com",
+          usernameEmail: "mccuistonweinfurterxi246-sketch",
+          passwordEncrypted: "GitSecurePass2026!",
+          notes: "Personal developer account for Vaultly hosting",
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: "cred_2",
+          title: "Google Workspace",
+          websiteUrl: "https://gmail.com",
+          usernameEmail: "matar.dev@gmail.com",
+          passwordEncrypted: "GooWorkSpace#88",
+          notes: "Primary email address",
+          createdAt: new Date().toISOString()
+        }
+      ],
       selectedCollectionId: 'all',
       selectedTag: null,
       searchQuery: '',
@@ -105,6 +131,23 @@ export const useBookmarkStore = create<BookmarkState>()(
         selectedCollectionId: state.selectedCollectionId === id ? 'all' : state.selectedCollectionId,
       })),
 
+      addCredential: (credentialData) => set((state) => {
+        const newCredential: Credential = {
+          ...credentialData,
+          id: `cred_${Date.now()}`,
+          createdAt: new Date().toISOString(),
+        };
+        return { credentials: [newCredential, ...state.credentials] };
+      }),
+
+      deleteCredential: (id) => set((state) => ({
+        credentials: state.credentials.filter((c) => c.id !== id),
+      })),
+
+      updateCredential: (id, updates) => set((state) => ({
+        credentials: state.credentials.map((c) => c.id === id ? { ...c, ...updates } : c),
+      })),
+
       setSelectedCollectionId: (id) => set({ selectedCollectionId: id, selectedTag: null }),
       setSelectedTag: (tag) => set({ selectedTag: tag }),
       setSearchQuery: (query) => set({ searchQuery: query }),
@@ -116,6 +159,7 @@ export const useBookmarkStore = create<BookmarkState>()(
       partialize: (state) => ({
         bookmarks: state.bookmarks,
         collections: state.collections,
+        credentials: state.credentials,
         viewMode: state.viewMode,
         theme: state.theme,
       }), // Save only essential data, skip temporary search queries & active filters

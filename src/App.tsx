@@ -3,7 +3,8 @@ import { MainLayout } from './components/layout/MainLayout';
 import { BookmarkCard } from './components/ui/BookmarkCard';
 import { AddBookmarkModal } from './components/ui/AddBookmarkModal';
 import { useBookmarkStore } from './store/useBookmarkStore';
-import { Sparkles, FolderOpen, Heart, Inbox, Clock, Archive } from 'lucide-react';
+import { Sparkles, FolderOpen, Heart, Inbox, Clock, Archive, Key } from 'lucide-react';
+import { CredentialsManager } from './components/ui/CredentialsManager';
 
 function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -94,6 +95,13 @@ function App() {
         icon: <Archive className="text-amber-600" size={18} />
       };
     }
+    if (selectedCollectionId === 'credentials') {
+      return {
+        title: 'Passwords & Logins',
+        description: 'Your secure vault for storing website accounts, emails, and generated passwords.',
+        icon: <Key className="text-brand" size={18} />
+      };
+    }
     if (activeCollection) {
       return {
         title: activeCollection.name,
@@ -131,8 +139,10 @@ function App() {
           </div>
         </div>
 
-        {/* Bookmarks Grid */}
-        {filteredBookmarks.length > 0 ? (
+        {/* Content Section: Credentials or Bookmarks */}
+        {selectedCollectionId === 'credentials' ? (
+          <CredentialsManager />
+        ) : filteredBookmarks.length > 0 ? (
           <div className={gridClass}>
             {filteredBookmarks.map((bookmark) => (
               <BookmarkCard key={bookmark.id} bookmark={bookmark} />

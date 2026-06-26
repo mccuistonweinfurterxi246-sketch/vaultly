@@ -67,7 +67,11 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({ isOpen, onCl
           setTagsInput('tool, devops');
         } else {
           setContentType('website');
-          setTagsInput(`${siteName}, web`);
+          if (siteName.toLowerCase() === 'web') {
+            setTagsInput('web');
+          } else {
+            setTagsInput(`${siteName}, web`);
+          }
         }
 
       } catch (err) {
@@ -86,10 +90,14 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({ isOpen, onCl
     e.preventDefault();
     if (!url || !title) return;
 
-    const tags = tagsInput
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter((t) => t.length > 0);
+    const tags = Array.from(
+      new Set(
+        tagsInput
+          .split(',')
+          .map((t) => t.trim().toLowerCase())
+          .filter((t) => t.length > 0)
+      )
+    );
 
     const faviconUrl = url ? `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64` : '';
 
