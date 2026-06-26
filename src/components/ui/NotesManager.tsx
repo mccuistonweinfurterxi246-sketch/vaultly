@@ -144,9 +144,9 @@ export const NotesManager: React.FC = () => {
         </div>
       </form>
 
-      {/* Notes Grid */}
+      {/* Notes Grid (Pinterest-style Masonry) */}
       {filteredNotes.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
           {filteredNotes.map((note) => {
             const isEditing = editingId === note.id;
             const noteBg = note.color || 'oklch(0.95 0.02 150)';
@@ -154,7 +154,7 @@ export const NotesManager: React.FC = () => {
             return (
               <div 
                 key={note.id}
-                className="rounded-2xl border p-5 flex flex-col justify-between h-[200px] transition-all duration-300 hover:scale-101 hover:shadow-xs"
+                className="break-inside-avoid inline-block w-full mb-5 rounded-2xl border p-5 flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-default"
                 style={{ 
                   backgroundColor: noteBg, 
                   borderColor: 'rgba(0, 0, 0, 0.05)',
@@ -163,7 +163,7 @@ export const NotesManager: React.FC = () => {
               >
                 {isEditing ? (
                   /* Edit Mode */
-                  <div className="flex-grow flex flex-col space-y-2.5 h-full">
+                  <div className="flex-grow flex flex-col space-y-2.5">
                     <input
                       type="text"
                       value={editTitle}
@@ -174,7 +174,8 @@ export const NotesManager: React.FC = () => {
                     <textarea
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
-                      className="bg-transparent text-[11px] leading-relaxed resize-none flex-grow focus:outline-none w-full"
+                      rows={4}
+                      className="bg-transparent text-[11px] leading-relaxed resize-none flex-grow focus:outline-none w-full min-h-[80px]"
                     />
                     <div className="flex justify-end gap-1.5">
                       <button
@@ -188,7 +189,7 @@ export const NotesManager: React.FC = () => {
                   </div>
                 ) : (
                   /* Read Mode */
-                  <div className="flex-grow flex flex-col h-full justify-between">
+                  <div className="flex-grow flex flex-col justify-between">
                     <div className="space-y-2">
                       {/* Note Title */}
                       <div className="flex items-start justify-between">
@@ -214,7 +215,7 @@ export const NotesManager: React.FC = () => {
                       </div>
                       
                       {/* Note Content */}
-                      <p className="text-[11px] text-black/70 leading-relaxed overflow-y-auto max-h-[100px] whitespace-pre-line pr-1 scrollbar-thin">
+                      <p className="text-[11px] text-black/70 leading-relaxed whitespace-pre-line break-words">
                         {renderContentWithLinks(note.content)}
                       </p>
                     </div>
