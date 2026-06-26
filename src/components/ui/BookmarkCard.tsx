@@ -17,7 +17,9 @@ import {
   FileText, 
   Image as ImageIcon, 
   Code, 
-  Link as LinkIcon 
+  Link as LinkIcon,
+  Edit3,
+  Check
 } from 'lucide-react';
 
 interface BookmarkCardProps {
@@ -32,10 +34,34 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
     viewMode,
     toggleFavoriteBookmark,
     toggleArchiveBookmark,
-    toggleReadLaterBookmark
+    toggleReadLaterBookmark,
+    updateBookmark
   } = useBookmarkStore();
 
   const collection = collections.find((c) => c.id === bookmark.collectionId);
+
+  const [isEditingDesc, setIsEditingDesc] = React.useState(false);
+  const [editDesc, setEditDesc] = React.useState(bookmark.description);
+
+  React.useEffect(() => {
+    setEditDesc(bookmark.description);
+  }, [bookmark.description]);
+
+  const handleSaveDesc = () => {
+    updateBookmark(bookmark.id, { description: editDesc.trim() });
+    setIsEditingDesc(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveDesc();
+    }
+    if (e.key === 'Escape') {
+      setEditDesc(bookmark.description);
+      setIsEditingDesc(false);
+    }
+  };
 
   const handleLinkClick = () => {
     incrementClickCount(bookmark.id);
@@ -330,9 +356,41 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
           </h3>
 
           {/* Description */}
-          <p className="text-[11px] text-text-muted line-clamp-2 leading-relaxed">
-            {bookmark.description}
-          </p>
+          {isEditingDesc ? (
+            <div className="relative mt-1">
+              <textarea
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                onBlur={handleSaveDesc}
+                onKeyDown={handleKeyDown}
+                className="w-full bg-surface-muted border border-brand/40 rounded-lg p-1.5 text-[11px] text-text-main focus:outline-none focus:ring-1 focus:ring-brand/50 resize-none leading-relaxed min-h-[50px]"
+                autoFocus
+                placeholder="Write description..."
+              />
+              <div className="absolute right-1.5 bottom-1.5 flex gap-1 bg-surface/80 backdrop-blur-xs p-0.5 rounded-md border border-border-custom/50">
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); handleSaveDesc(); }}
+                  className="p-0.5 hover:bg-brand/10 text-brand rounded transition-colors"
+                >
+                  <Check size={10} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div 
+              onClick={() => setIsEditingDesc(true)}
+              className="group/desc relative cursor-pointer hover:bg-surface-muted/50 p-1 -m-1 rounded-lg transition-colors duration-150"
+              title="Click to edit description"
+            >
+              <p className="text-[11px] text-text-muted line-clamp-2 leading-relaxed pr-5">
+                {bookmark.description || <span className="italic text-text-muted/40">No description. Click to add...</span>}
+              </p>
+              <span className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/desc:opacity-100 transition-opacity text-text-muted/60 hover:text-brand">
+                <Edit3 size={10} />
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
