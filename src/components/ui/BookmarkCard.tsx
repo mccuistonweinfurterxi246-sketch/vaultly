@@ -270,15 +270,24 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
       {/* Cover Image or Logo-Centric Header */}
       <div 
         className="relative aspect-[16/9] w-full overflow-hidden flex items-center justify-center bg-surface-muted border-b border-border-custom/80"
-        style={{
-          background: `linear-gradient(135deg, var(--surface-muted) 0%, ${collection?.color ? `${collection.color}18` : 'var(--accent-soft)'} 100%)`
-        }}
       >
-        {/* Subtle background glow */}
-        <div 
-          className="absolute w-24 h-24 rounded-full filter blur-xl opacity-20"
-          style={{ backgroundColor: collection?.color || 'var(--accent)' }}
-        />
+        {/* Dynamic Blurred Background (Auto Color from Icon) */}
+        {bookmark.faviconUrl ? (
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden flex items-center justify-center opacity-40 dark:opacity-20">
+            <img
+              src={bookmark.faviconUrl}
+              alt=""
+              className="w-full h-full object-cover scale-[3] blur-[40px]"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          </div>
+        ) : (
+          /* Fallback background glow */
+          <div 
+            className="absolute w-32 h-32 rounded-full filter blur-2xl opacity-20 z-0 pointer-events-none"
+            style={{ backgroundColor: collection?.color || 'var(--accent)' }}
+          />
+        )}
 
         {/* Floating Glassmorphic Logo Container */}
         <div className="relative z-10 w-16 h-16 rounded-2xl bg-surface/90 backdrop-blur-md border border-border-custom/80 shadow-md flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
