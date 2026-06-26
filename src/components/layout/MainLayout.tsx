@@ -27,7 +27,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, onAddClick }) 
         {/* Content View */}
         <main className="flex-1 overflow-y-auto bg-surface-muted/30 relative">
           {/* Subtle LetterGlitch Background Animation with higher opacity for visibility */}
-          <div className="absolute inset-0 pointer-events-none opacity-[0.15] dark:opacity-[0.2] z-0">
+          <div className="fixed inset-0 pointer-events-none opacity-[0.15] dark:opacity-[0.2] z-0">
             <LetterGlitch
               glitchSpeed={60}
               centerVignette={true}
