@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { Outfit } from 'next/font/google';
+import { Manrope } from 'next/font/google';
 import './globals.css';
 
-const outfit = Outfit({ 
+const manrope = Manrope({ 
   subsets: ['latin', 'cyrillic'],
   display: 'swap',
   weight: ['300', '400', '500', '600', '700', '800'],
@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${outfit.className} antialiased`}>
+      <body className={`${manrope.className} antialiased`}>
         {children}
       </body>
     </html>
