@@ -7,6 +7,7 @@ export const Sidebar: React.FC = () => {
   const {
     collections,
     bookmarks,
+    notes,
     selectedCollectionId,
     selectedTag,
     setSelectedCollectionId,
@@ -30,6 +31,7 @@ export const Sidebar: React.FC = () => {
   const favoriteCount = bookmarks.filter((b) => b.isFavorite && !b.isArchived).length;
   const readLaterCount = bookmarks.filter((b) => b.readLater && !b.isArchived).length;
   const archivedCount = bookmarks.filter((b) => b.isArchived).length;
+  const notesCount = notes?.length || 0;
 
   const handleAddCollection = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +143,24 @@ export const Sidebar: React.FC = () => {
             </div>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted">
               {archivedCount}
+            </span>
+          </button>
+
+          {/* Notes */}
+          <button
+            onClick={() => setSelectedCollectionId('notes')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all duration-200 ${
+              selectedCollectionId === 'notes' && !selectedTag
+                ? 'bg-brand-soft text-brand font-semibold'
+                : 'text-text-muted hover:bg-surface-muted hover:text-text-main'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Icons.FileText size={16} />
+              <span>Quick Notes</span>
+            </div>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted">
+              {notesCount}
             </span>
           </button>
         </div>

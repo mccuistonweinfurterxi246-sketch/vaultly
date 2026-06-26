@@ -5,7 +5,8 @@ import { MainLayout } from '../components/layout/MainLayout';
 import { BookmarkCard } from '../components/ui/BookmarkCard';
 import { AddBookmarkModal } from '../components/ui/AddBookmarkModal';
 import { useBookmarkStore } from '../store/useBookmarkStore';
-import { Sparkles, FolderOpen, Heart, Inbox, Clock, Archive } from 'lucide-react';
+import { Sparkles, FolderOpen, Heart, Inbox, Clock, Archive, FileText } from 'lucide-react';
+import { NotesManager } from '../components/ui/NotesManager';
 
 export default function Home() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -102,6 +103,13 @@ export default function Home() {
         icon: <Archive className="text-amber-600" size={18} />
       };
     }
+    if (selectedCollectionId === 'notes') {
+      return {
+        title: 'Quick Notes',
+        description: 'Your premium workspace to write down ideas, paste links, and keep notes in one click.',
+        icon: <FileText className="text-brand" size={18} />
+      };
+    }
     if (activeCollection) {
       return {
         title: activeCollection.name,
@@ -151,8 +159,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Bookmarks Grid */}
-        {filteredBookmarks.length > 0 ? (
+        {/* Content Section: Notes or Bookmarks */}
+        {selectedCollectionId === 'notes' ? (
+          <NotesManager />
+        ) : filteredBookmarks.length > 0 ? (
           <div className={gridClass}>
             {filteredBookmarks.map((bookmark) => (
               <BookmarkCard key={bookmark.id} bookmark={bookmark} />

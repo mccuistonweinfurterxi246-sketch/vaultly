@@ -17,6 +17,14 @@ export interface Collection {
   iconName: string;
 }
 
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  color?: string; // Pastel background color for sticky note style
+  createdAt: string;
+}
+
 export interface Credential {
   id: string;
   title: string;
