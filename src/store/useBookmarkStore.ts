@@ -69,7 +69,7 @@ export const useBookmarkStore = create<BookmarkState>()(
       addBookmark: (bookmarkData) => set((state) => {
         const newBookmark: Bookmark = {
           ...bookmarkData,
-          id: `bm_${Date.now()}`,
+          id: `bm_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
           isArchived: false,
           clicksCount: 0,
           createdAt: new Date().toISOString(),
@@ -114,7 +114,7 @@ export const useBookmarkStore = create<BookmarkState>()(
       addCollection: (collectionData) => set((state) => {
         const newCollection: Collection = {
           ...collectionData,
-          id: `col_${Date.now()}`,
+          id: `col_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         };
         return { collections: [...state.collections, newCollection] };
       }),
@@ -130,7 +130,7 @@ export const useBookmarkStore = create<BookmarkState>()(
       addNote: (noteData) => set((state) => {
         const newNote: Note = {
           ...noteData,
-          id: `note_${Date.now()}`,
+          id: `note_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
           createdAt: new Date().toISOString(),
         };
         return { notes: [newNote, ...state.notes] };
