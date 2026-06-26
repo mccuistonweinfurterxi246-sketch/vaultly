@@ -88,7 +88,7 @@ export const NotesManager: React.FC = () => {
       {/* Quick Note Creator (1-Click Creation) */}
       <form 
         onSubmit={handleCreateNote} 
-        className="bg-surface border border-border-custom rounded-2xl p-5 shadow-xs space-y-4"
+        className="bg-surface border border-border-custom rounded-2xl p-5 shadow-xs space-y-4 max-w-xl mx-auto border-dashed hover:border-brand/40 transition-all duration-300"
       >
         <div className="flex items-center justify-between border-b border-border-custom/60 pb-3">
           <div className="flex items-center gap-2">

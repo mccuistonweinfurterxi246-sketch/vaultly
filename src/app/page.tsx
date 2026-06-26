@@ -147,7 +147,7 @@ export default function Home() {
     <MainLayout onAddClick={() => setIsAddModalOpen(true)}>
       <div className="p-8 max-w-[1600px] mx-auto space-y-6">
         {/* Dashboard Header */}
-        <div className="flex items-start gap-3.5 pb-5 border-b border-border-custom transition-colors duration-200">
+        <div className={`flex items-start gap-3.5 pb-5 border-b border-border-custom transition-colors duration-200 ${selectedCollectionId === 'notes' ? 'max-w-5xl mx-auto w-full' : ''}`}>
           <div className="p-2 bg-surface border border-border-custom rounded-xl mt-0.5 shadow-xs">
             {headerInfo.icon}
           </div>
@@ -161,7 +161,9 @@ export default function Home() {
 
         {/* Content Section: Notes or Bookmarks */}
         {selectedCollectionId === 'notes' ? (
-          <NotesManager />
+          <div className="max-w-5xl mx-auto w-full">
+            <NotesManager />
+          </div>
         ) : filteredBookmarks.length > 0 ? (
           <div className={gridClass}>
             {filteredBookmarks.map((bookmark) => (
