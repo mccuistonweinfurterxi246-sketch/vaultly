@@ -10,8 +10,8 @@ const nextConfig = {
       {
         source: '/',
         destination: '/vaultly',
-        basePath: false,
         permanent: true,
+        basePath: false,
       },
     ];
   },

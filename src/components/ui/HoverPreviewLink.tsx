@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { ExternalLink } from 'lucide-react';
 import { cn } from '@/utils/utils';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
 interface HoverPreviewLinkProps {
   href: string;
   children: React.ReactNode;
@@ -15,284 +13,257 @@ interface HoverPreviewLinkProps {
   fallbackTitle?: string;
 }
 
-/**
- * Tier states:
- *  'direct' — Tier 1: native iframe embed
- *  'proxy'  — Tier 2: live DOM via /api/proxy reverse proxy
- *  'card'   — Tier 3: glassmorphic fallback micro-card
- */
 type PreviewTier = 'direct' | 'proxy' | 'card';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Session-level domain cache — shared across all instances, survives re-mounts
-// ─────────────────────────────────────────────────────────────────────────────
-const domainCache = new Map<string, PreviewTier>();
+const BASE_PATH = '/vaultly';
+const PREVIEW_WIDTH = 480;
+const PREVIEW_HEIGHT = 320;
+const PREVIEW_SCALE = 0.375;
+const SOURCE_WIDTH = Math.round(PREVIEW_WIDTH / PREVIEW_SCALE);
+const SOURCE_HEIGHT = Math.round((PREVIEW_HEIGHT - 32) / PREVIEW_SCALE);
+const INTENT_DELAY_MS = 140;
+const CLOSE_DELAY_MS = 220;
+const POINTER_DELAY_MS = 250;
 
-const KNOWN_BLOCKED = new Set([
-  'google.com', 'github.com', 'youtube.com', 'facebook.com',
-  'twitter.com', 'x.com', 'linkedin.com', 'instagram.com',
-  'stackoverflow.com', 'reddit.com', 'amazon.com', 'netflix.com',
-  'yahoo.com', 'microsoft.com', 'apple.com', 'zoom.us', 'dropbox.com',
-  'tiktok.com', 'twitch.tv', 'discord.com', 'slack.com', 'notion.so',
-]);
+const blockedDomainCache = new Map<string, PreviewTier>();
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-function getHostname(href: string): string {
-  try { return new URL(href).hostname; } catch { return ''; }
+function getUrl(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
 }
 
-function getDisplayDomain(href: string): string {
-  try { return new URL(href).hostname.replace(/^www\./, ''); } catch { return href; }
+function getHostname(value: string): string {
+  return getUrl(value)?.hostname.toLowerCase() ?? '';
 }
 
-function isKnownBlocked(hostname: string): boolean {
-  return KNOWN_BLOCKED.has(hostname) ||
-    [...KNOWN_BLOCKED].some(d => hostname.endsWith('.' + d));
+function getDisplayDomain(value: string): string {
+  return getHostname(value).replace(/^www\./, '') || value;
 }
 
-function buildProxyUrl(href: string): string {
-  return `/vaultly/api/proxy?url=${encodeURIComponent(href)}`;
+function getProxyUrl(href: string): string {
+  return `${BASE_PATH}/api/proxy?url=${encodeURIComponent(href)}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────────────────────
-const INTENT_DELAY_MS  = 150;
-const CLOSE_DELAY_MS   = 300;
-const TIER1_TIMEOUT_MS = 1200;
-const POINTER_DELAY_MS = 380;
+function getFaviconUrl(hostname: string): string {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=32`;
+}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────────────────────────────────────
 export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
   href,
   children,
-  className = '',
-  popupClassName = '',
+  className,
+  popupClassName,
   fallbackTitle,
 }) => {
-  const [isOpen, setIsOpen]                   = useState(false);
-  const [tier, setTier]                       = useState<PreviewTier>('direct');
-  const [isLoading, setIsLoading]             = useState(false);
-  const [allowPointerEvents, setAllowPointer] = useState(false);
-  const [position, setPosition]               = useState({ top: 0, left: 0 });
-  const [isMounted, setIsMounted]             = useState(false);
-
-  const anchorRef     = useRef<HTMLAnchorElement>(null);
-  const popoverRef    = useRef<HTMLDivElement>(null);
-  const iframeRef     = useRef<HTMLIFrameElement>(null);
-  const openTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anchorRef = useRef<HTMLAnchorElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tier1TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const ptrTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const popoverShown  = useRef(false);
+  const pointerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const popoverVisibleRef = useRef(false);
 
-  const domainName = getDisplayDomain(href);
-  const hostname   = getHostname(href);
+  const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [tier, setTier] = useState<PreviewTier>('direct');
+  const [loading, setLoading] = useState(false);
+  const [pointerEnabled, setPointerEnabled] = useState(false);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
 
-  useEffect(() => { setIsMounted(true); }, []);
+  const hostname = useMemo(() => getHostname(href), [href]);
+  const displayDomain = useMemo(() => getDisplayDomain(href), [href]);
+  const iframeSrc = tier === 'direct' ? href : tier === 'proxy' ? getProxyUrl(href) : '';
 
-  useEffect(() => {
-    return () => {
-      [openTimerRef, closeTimerRef, tier1TimerRef, ptrTimerRef].forEach(r => {
-        if (r.current) clearTimeout(r.current);
-      });
-    };
+  const clearTimer = useCallback((timerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
   }, []);
 
-  // ── Popover DOM lifecycle ─────────────────────────────────────────────────
-  useEffect(() => {
-    const el = popoverRef.current;
-    if (!el) return;
-
-    if (isOpen) {
-      if (!popoverShown.current) {
-        try { el.showPopover(); popoverShown.current = true; } catch { /* safe */ }
-      }
-      if (ptrTimerRef.current) clearTimeout(ptrTimerRef.current);
-      ptrTimerRef.current = setTimeout(() => setAllowPointer(true), POINTER_DELAY_MS);
-    } else {
-      if (popoverShown.current) {
-        try { el.hidePopover(); popoverShown.current = false; } catch { /* safe */ }
-      }
-      setAllowPointer(false);
-    }
-  }, [isOpen]);
-
-  // ── Position ──────────────────────────────────────────────────────────────
   const updatePosition = useCallback(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
+
     const rect = anchor.getBoundingClientRect();
-    const sy = window.scrollY, sx = window.scrollX;
-    const PW = 480, PH = 320, GAP = 14, EDGE = 10;
+    const gap = 14;
+    const edge = 10;
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
 
-    let left = rect.left + sx + rect.width / 2 - PW / 2;
-    left = Math.max(EDGE, Math.min(left, window.innerWidth + sx - PW - EDGE));
+    let left = rect.left + rect.width / 2 - PREVIEW_WIDTH / 2;
+    left = Math.max(edge, Math.min(left, viewportWidth - PREVIEW_WIDTH - edge));
 
-    const top = rect.top >= PH + GAP + EDGE
-      ? rect.top + sy - PH - GAP
-      : rect.bottom + sy + GAP;
+    const hasRoomAbove = rect.top >= PREVIEW_HEIGHT + gap + edge;
+    const hasRoomBelow = viewportHeight - rect.bottom >= PREVIEW_HEIGHT + gap + edge;
+    let top = hasRoomAbove && !hasRoomBelow ? rect.top - PREVIEW_HEIGHT - gap : rect.bottom + gap;
+    top = Math.max(edge, Math.min(top, viewportHeight - PREVIEW_HEIGHT - edge));
 
-    setPosition({ top, left });
+    setPosition({ left, top });
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const h = () => updatePosition();
-    window.addEventListener('resize', h);
-    window.addEventListener('scroll', h, { passive: true });
-    return () => { window.removeEventListener('resize', h); window.removeEventListener('scroll', h); };
-  }, [isOpen, updatePosition]);
+  const closePreview = useCallback(() => {
+    clearTimer(closeTimerRef);
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false);
+      setLoading(false);
+      setPointerEnabled(false);
+      clearTimer(pointerTimerRef);
+    }, CLOSE_DELAY_MS);
+  }, [clearTimer]);
 
-  // ── Escape key ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isOpen) return;
-    const h = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setIsOpen(false); anchorRef.current?.focus(); }
-    };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [isOpen]);
+  const cancelClose = useCallback(() => {
+    clearTimer(closeTimerRef);
+  }, [clearTimer]);
 
-  // ── Tier resolver ─────────────────────────────────────────────────────────
-  const openPopover = useCallback(() => {
-    const cached = domainCache.get(hostname);
+  const openPreview = useCallback(() => {
+    cancelClose();
+    updatePosition();
 
-    if (cached) {
-      setTier(cached);
-      setIsLoading(false);
-    } else if (isKnownBlocked(hostname)) {
-      domainCache.set(hostname, 'proxy');
-      setTier('proxy');
-      setIsLoading(false);
+    const cachedTier = blockedDomainCache.get(hostname);
+
+    if (cachedTier) {
+      setTier(cachedTier);
+      setLoading(cachedTier === 'proxy');
     } else {
-      setTier('direct');
-      setIsLoading(true);
-
-      if (tier1TimerRef.current) clearTimeout(tier1TimerRef.current);
-      tier1TimerRef.current = setTimeout(() => {
-        setTier(prev => {
-          if (prev === 'direct') {
-            setIsLoading(false);
-            domainCache.set(hostname, 'proxy');
-            return 'proxy';
-          }
-          return prev;
-        });
-      }, TIER1_TIMEOUT_MS);
+      blockedDomainCache.set(hostname, 'proxy');
+      setTier('proxy');
+      setLoading(true);
     }
+
+    setOpen(true);
+  }, [cancelClose, hostname, updatePosition]);
+
+  const scheduleOpen = useCallback(() => {
+    cancelClose();
+    clearTimer(openTimerRef);
+    openTimerRef.current = setTimeout(openPreview, INTENT_DELAY_MS);
+  }, [cancelClose, clearTimer, openPreview]);
+
+  const cancelOpenAndClose = useCallback(() => {
+    clearTimer(openTimerRef);
+    closePreview();
+  }, [clearTimer, closePreview]);
+
+  const handleProxyLoad = useCallback(() => {
+    blockedDomainCache.set(hostname, 'proxy');
+    setLoading(false);
+  }, [hostname]);
+
+  const handleProxyError = useCallback(() => {
+    blockedDomainCache.set(hostname, 'card');
+    setTier('card');
+    setLoading(false);
+  }, [hostname]);
+
+  useEffect(() => {
+    setMounted(true);
+
+    return () => {
+      clearTimer(openTimerRef);
+      clearTimer(closeTimerRef);
+      clearTimer(pointerTimerRef);
+    };
+  }, [clearTimer]);
+
+  useEffect(() => {
+    if (!open) return;
 
     updatePosition();
-    setIsOpen(true);
-  }, [hostname, updatePosition]);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
 
-  // ── Hover Bridge ──────────────────────────────────────────────────────────
-  const cancelClose = useCallback(() => {
-    if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
-  }, []);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open, updatePosition]);
 
-  const scheduleClose = useCallback(() => {
-    cancelClose();
-    closeTimerRef.current = setTimeout(() => {
-      setIsOpen(false);
-      setIsLoading(false);
-      if (tier1TimerRef.current) { clearTimeout(tier1TimerRef.current); tier1TimerRef.current = null; }
-    }, CLOSE_DELAY_MS);
-  }, [cancelClose]);
+  useEffect(() => {
+    if (!open) return;
 
-  const handleEnterLink    = useCallback(() => { cancelClose(); if (openTimerRef.current) clearTimeout(openTimerRef.current); openTimerRef.current = setTimeout(openPopover, INTENT_DELAY_MS); }, [cancelClose, openPopover]);
-  const handleLeaveLink    = useCallback(() => { if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null; } scheduleClose(); }, [scheduleClose]);
-  const handleEnterPopover = useCallback(() => { cancelClose(); }, [cancelClose]);
-  const handleLeavePopover = useCallback(() => { scheduleClose(); }, [scheduleClose]);
-
-  // ── Iframe onLoad (Tier 1 → Tier 2 detection) ────────────────────────────
-  const handleDirectIframeLoad = useCallback(() => {
-    if (tier1TimerRef.current) { clearTimeout(tier1TimerRef.current); tier1TimerRef.current = null; }
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    let isBlocked = false;
-    try {
-      const cw = iframe.contentWindow;
-      if (!cw) { isBlocked = true; }
-      else {
-        const len = cw.length;
-        let loc = '';
-        try { loc = cw.location.href; } catch { /* cross-origin */ }
-        if (len === 0 && (loc === 'about:blank' || loc === '')) isBlocked = true;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        setLoading(false);
+        anchorRef.current?.focus();
       }
-    } catch {
-      isBlocked = true;
-    }
+    };
 
-    if (isBlocked) {
-      domainCache.set(hostname, 'proxy');
-      setTier('proxy');
-    } else {
-      domainCache.set(hostname, 'direct');
-    }
-    setIsLoading(false);
-  }, [hostname]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
-  // ── Proxy iframe onLoad (Tier 2 → Tier 3 check) ──────────────────────────
-  const handleProxyIframeLoad = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    try {
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (doc) {
-        const body = doc.body?.textContent || '';
-        if (body.includes('"error"') && body.length < 500) {
-          domainCache.set(hostname, 'card');
-          setTier('card');
+  useEffect(() => {
+    const popover = popoverRef.current;
+    if (!popover) return;
+
+    if (open) {
+      if (!popoverVisibleRef.current) {
+        try {
+          popover.showPopover();
+          popoverVisibleRef.current = true;
+        } catch {
+          popoverVisibleRef.current = false;
         }
       }
-    } catch {
-      // cross-origin = proxy working = success
+
+      clearTimer(pointerTimerRef);
+      pointerTimerRef.current = setTimeout(() => setPointerEnabled(true), POINTER_DELAY_MS);
+      return;
     }
-  }, [hostname]);
 
-  const handleProxyIframeError = useCallback(() => {
-    domainCache.set(hostname, 'card');
-    setTier('card');
-  }, [hostname]);
+    clearTimer(pointerTimerRef);
+    setPointerEnabled(false);
 
-  const iframeSrc = tier === 'direct' ? href : tier === 'proxy' ? buildProxyUrl(href) : '';
+    if (popoverVisibleRef.current) {
+      try {
+        popover.hidePopover();
+      } catch {
+      } finally {
+        popoverVisibleRef.current = false;
+      }
+    }
+  }, [clearTimer, open]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .hvr-popover {
-          position: absolute;
-          margin: 0; padding: 0;
-          border: none; background: none;
-          inset: unset;
-          opacity: 0;
-          transform: scale(0.94) translateY(10px);
-          transition:
-            opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-            transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-            display 0.28s allow-discrete,
-            overlay 0.28s allow-discrete;
-        }
-        .hvr-popover:popover-open {
-          opacity: 1;
-          transform: scale(1) translateY(0);
-        }
-        @starting-style {
-          .hvr-popover:popover-open {
-            opacity: 0;
-            transform: scale(0.94) translateY(10px);
-          }
-        }
-      `}} />
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .vaultly-preview-popover {
+              position: fixed;
+              inset: unset;
+              z-index: 2147483647;
+              width: ${PREVIEW_WIDTH}px;
+              height: ${PREVIEW_HEIGHT}px;
+              margin: 0;
+              padding: 0;
+              border: 0;
+              background: transparent;
+              overflow: visible;
+              opacity: 0;
+              transform: translateY(8px) scale(0.97);
+              transition: opacity 160ms ease, transform 160ms ease, display 160ms allow-discrete, overlay 160ms allow-discrete;
+            }
+
+            .vaultly-preview-popover:popover-open {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+
+            @starting-style {
+              .vaultly-preview-popover:popover-open {
+                opacity: 0;
+                transform: translateY(8px) scale(0.97);
+              }
+            }
+          `,
+        }}
+      />
 
       <a
         ref={anchorRef}
@@ -300,139 +271,125 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
-          'underline decoration-brand/40 hover:decoration-brand',
-          'text-text-main hover:text-brand',
-          'transition-colors duration-150',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 rounded-sm',
-          className
+          'rounded-sm underline decoration-brand/40 transition-colors duration-150',
+          'text-text-main hover:text-brand hover:decoration-brand',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
+          className,
         )}
-        onMouseEnter={handleEnterLink}
-        onMouseLeave={handleLeaveLink}
-        onFocus={handleEnterLink}
-        onBlur={handleLeaveLink}
+        onFocus={scheduleOpen}
+        onBlur={cancelOpenAndClose}
+        onMouseEnter={scheduleOpen}
+        onMouseLeave={cancelOpenAndClose}
       >
         {children}
       </a>
 
-      {isMounted && createPortal(
-        <div
-          ref={popoverRef}
-          popover="manual"
-          onMouseEnter={handleEnterPopover}
-          onMouseLeave={handleLeavePopover}
-          style={{ top: position.top, left: position.left, width: 480, height: 320 }}
-          className={cn(
-            'hvr-popover',
-            'rounded-xl shadow-2xl overflow-hidden flex flex-col',
-            'border border-white/10 bg-[hsl(var(--surface))]',
-            allowPointerEvents ? 'pointer-events-auto' : 'pointer-events-none',
-            popupClassName
-          )}
-        >
-          {/* Header */}
-          <div className="flex shrink-0 items-center justify-between px-4 h-8
-                          bg-white/5 border-b border-white/10
-                          text-[10px] font-mono text-text-muted select-none">
-            <div className="flex items-center gap-2 min-w-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`https://www.google.com/s2/favicons?domain=${domainName}&sz=16`}
-                alt="" width={12} height={12}
-                className="rounded-[2px] shrink-0" loading="lazy"
-              />
-              <span className="truncate">{domainName}</span>
-            </div>
-            <span className="flex items-center gap-1.5 shrink-0 ml-3">
-              <span className={cn(
-                'w-1.5 h-1.5 rounded-full',
-                tier === 'direct' ? 'bg-emerald-400 animate-pulse' :
-                tier === 'proxy'  ? 'bg-amber-400 animate-pulse' :
-                                    'bg-red-400'
-              )} />
-              {tier === 'direct' ? 'Live' : tier === 'proxy' ? 'Proxied' : 'Blocked'}
-            </span>
-          </div>
-
-          {/* Content */}
-          <div className="relative flex-grow w-full overflow-hidden bg-[hsl(var(--background))]">
-
-            {/* Hover bridge invisible pad */}
-            <div className="absolute -top-4 left-0 right-0 h-4 pointer-events-auto" aria-hidden="true" />
-
-            {/* Tier 1 & 2: iframe (direct or proxied) */}
-            {(tier === 'direct' || tier === 'proxy') && (
-              <div
-                className="w-[1280px] h-[800px] origin-top-left"
-                style={{ transform: 'scale(0.375)' }}
-              >
-                <iframe
-                  ref={iframeRef}
-                  src={iframeSrc}
-                  title={`Preview — ${domainName}`}
-                  className="w-full h-full border-none bg-white"
-                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                  loading="eager"
-                  onLoad={tier === 'direct' ? handleDirectIframeLoad : handleProxyIframeLoad}
-                  onError={tier === 'proxy' ? handleProxyIframeError : undefined}
-                />
-              </div>
+      {mounted &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            popover="manual"
+            className={cn(
+              'vaultly-preview-popover rounded-xl border border-white/10 shadow-2xl',
+              'bg-[hsl(var(--surface))] text-text-main',
+              pointerEnabled ? 'pointer-events-auto' : 'pointer-events-none',
+              popupClassName,
             )}
-
-            {/* Loading overlay */}
-            {isLoading && tier === 'direct' && (
-              <div className="absolute inset-0 z-20 flex flex-col gap-3 items-center justify-center
-                              bg-[hsl(var(--surface))]">
-                <div className="relative w-9 h-9">
-                  <div className="absolute inset-0 rounded-full border-2 border-brand/20" />
-                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand animate-spin" />
+            style={{ left: position.left, top: position.top }}
+            onMouseEnter={cancelClose}
+            onMouseLeave={closePreview}
+          >
+            <div className="flex h-full w-full flex-col overflow-hidden rounded-xl">
+              <div className="flex h-8 shrink-0 items-center justify-between border-b border-white/10 bg-white/5 px-3 text-[10px] font-medium text-text-muted">
+                <div className="flex min-w-0 items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getFaviconUrl(hostname)}
+                    alt=""
+                    width={14}
+                    height={14}
+                    loading="lazy"
+                    className="size-3.5 shrink-0 rounded-[3px]"
+                  />
+                  <span className="truncate">{displayDomain}</span>
                 </div>
-                <span className="text-[10px] tracking-widest uppercase font-mono text-text-muted animate-pulse">
-                  Loading preview…
+                <span className="ml-3 flex shrink-0 items-center gap-1.5">
+                  <span
+                    className={cn(
+                      'size-1.5 rounded-full',
+                      tier === 'direct' && 'bg-emerald-400',
+                      tier === 'proxy' && 'bg-amber-400',
+                      tier === 'card' && 'bg-red-400',
+                    )}
+                  />
+                  {tier === 'direct' ? 'Live' : tier === 'proxy' ? 'Proxy' : 'Open'}
                 </span>
               </div>
-            )}
 
-            {/* Tier 3: Glassmorphic fallback */}
-            {tier === 'card' && (
-              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6
-                              bg-[hsl(var(--surface))]/90 backdrop-blur-xl text-center">
-                <div className="w-14 h-14 rounded-2xl mb-4 grid place-items-center
-                                bg-brand/10 border border-brand/20 text-brand shadow-inner">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                    strokeWidth={1.4} stroke="currentColor" className="w-7 h-7">
-                    <path strokeLinecap="round" strokeLinejoin="round"
-                      d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.6 9h16.8M3.6 15h16.8
-                         M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18" />
-                  </svg>
-                </div>
-                <p className="text-[11px] font-semibold text-text-main mb-1 truncate max-w-full">
-                  {fallbackTitle || domainName}
-                </p>
-                <p className="text-[10px] text-text-muted leading-relaxed mb-5 max-w-[260px]">
-                  Превью недоступно. Откройте сайт напрямую в новой вкладке.
-                </p>
-                <a
-                  href={href} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
-                             bg-brand text-white text-[10px] font-semibold tracking-wide
-                             shadow-md hover:bg-brand/90 hover:scale-105
-                             transition-all duration-150 outline-none
-                             focus-visible:ring-2 focus-visible:ring-brand/40"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                    strokeWidth={2} stroke="currentColor" className="w-3 h-3">
-                    <path strokeLinecap="round" strokeLinejoin="round"
-                      d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5
-                         A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                  </svg>
-                  Открыть сайт
-                </a>
+              <div className="relative flex-1 overflow-hidden bg-white">
+                <div className="absolute -top-4 left-0 right-0 h-4 pointer-events-auto" aria-hidden="true" />
+
+                {(tier === 'direct' || tier === 'proxy') && (
+                  <div
+                    className="origin-top-left bg-white"
+                    style={{
+                      width: SOURCE_WIDTH,
+                      height: SOURCE_HEIGHT,
+                      transform: `scale(${PREVIEW_SCALE})`,
+                    }}
+                  >
+                    <iframe
+                      ref={iframeRef}
+                      src={iframeSrc}
+                      title={`Preview of ${displayDomain}`}
+                      className="h-full w-full border-0 bg-white"
+                      sandbox="allow-downloads allow-forms allow-modals allow-popups allow-scripts"
+                      referrerPolicy="no-referrer"
+                      loading="eager"
+                      onLoad={tier === 'direct' ? undefined : handleProxyLoad}
+                      onError={tier === 'proxy' ? handleProxyError : undefined}
+                    />
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="absolute inset-0 z-20 grid place-items-center bg-[hsl(var(--surface))]">
+                    <div className="flex flex-col items-center gap-3">
+                      <span className="size-8 rounded-full border-2 border-brand/20 border-t-brand animate-spin" />
+                      <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+                        Loading preview
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {tier === 'card' && (
+                  <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[hsl(var(--surface))] p-6 text-center">
+                    <div className="mb-4 grid size-14 place-items-center rounded-xl border border-brand/20 bg-brand/10 text-brand">
+                      <ExternalLink size={24} strokeWidth={1.8} />
+                    </div>
+                    <p className="mb-1 max-w-full truncate text-sm font-semibold text-text-main">
+                      {fallbackTitle || displayDomain}
+                    </p>
+                    <p className="mb-5 max-w-[280px] text-xs leading-relaxed text-text-muted">
+                      This site blocks embedded previews. Open it in a new tab to view the page.
+                    </p>
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                    >
+                      <ExternalLink size={14} strokeWidth={2} />
+                      Open site
+                    </a>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 };
