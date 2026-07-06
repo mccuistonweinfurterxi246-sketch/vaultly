@@ -17,11 +17,11 @@ interface HoverPreviewLinkProps {
 
 /**
  * Tier states:
- *  'direct'  — Tier 1: native iframe embed (no proxy)
- *  'proxy'   — Tier 2: live DOM via /api/proxy reverse proxy
- *  'card'    — Tier 3: glassmorphic fallback micro-card
+ *  'direct'     — Tier 1: native iframe embed
+ *  'screenshot' — Tier 2: thum.io screenshot image
+ *  'card'       — Tier 3: glassmorphic fallback micro-card
  */
-type PreviewTier = 'direct' | 'proxy' | 'card';
+type PreviewTier = 'direct' | 'screenshot' | 'card';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Module-level session cache — survives re-mounts, shared across all instances
@@ -53,8 +53,8 @@ function isKnownBlocked(hostname: string): boolean {
     [...KNOWN_BLOCKED].some(d => hostname.endsWith('.' + d));
 }
 
-function buildProxyUrl(href: string): string {
-  return `/api/proxy?url=${encodeURIComponent(href)}`;
+function buildScreenshotUrl(href: string): string {
+  return `https://image.thum.io/get/width/1280/crop/800/maxAge/12/${href}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ function buildProxyUrl(href: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 const INTENT_DELAY_MS   = 150;   // hover-intent debounce
 const CLOSE_DELAY_MS    = 300;   // hover-bridge close buffer
-const TIER1_TIMEOUT_MS  = 1200;  // hard timeout before escalating to proxy
+const TIER1_TIMEOUT_MS  = 1200;  // hard timeout before escalating to screenshot
 const POINTER_DELAY_MS  = 380;   // wait for CSS transition before enabling clicks
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -182,23 +182,23 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
       setTier(cached);
       setIsLoading(false);
     } else if (isKnownBlocked(hostname)) {
-      // Pre-empt: skip Tier 1 → go straight to live proxy
-      domainCache.set(hostname, 'proxy');
-      setTier('proxy');
+      // Pre-empt: skip Tier 1 → go straight to screenshot
+      domainCache.set(hostname, 'screenshot');
+      setTier('screenshot');
       setIsLoading(false);
     } else {
       // Unknown domain → try Tier 1 (direct iframe)
       setTier('direct');
       setIsLoading(true);
 
-      // Hard 1.2s timeout → auto-escalate to Tier 2 (proxy)
+      // Hard 1.2s timeout → auto-escalate to Tier 2 (screenshot)
       if (tier1TimerRef.current) clearTimeout(tier1TimerRef.current);
       tier1TimerRef.current = setTimeout(() => {
         setTier(prev => {
           if (prev === 'direct') {
             setIsLoading(false);
-            domainCache.set(hostname, 'proxy');
-            return 'proxy';
+            domainCache.set(hostname, 'screenshot');
+            return 'screenshot';
           }
           return prev;
         });
@@ -265,43 +265,24 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
     }
 
     if (isBlocked) {
-      domainCache.set(hostname, 'proxy');
-      setTier('proxy');
+      domainCache.set(hostname, 'screenshot');
+      setTier('screenshot');
     } else {
       domainCache.set(hostname, 'direct');
     }
     setIsLoading(false);
   }, [hostname]);
 
-  // ── Proxy iframe error (Tier 2 → Tier 3) ───────────────────────────────
-  const handleProxyIframeError = useCallback(() => {
+  // ── Screenshot error (Tier 2 → Tier 3) ─────────────────────────────────
+  const handleScreenshotError = useCallback(() => {
     domainCache.set(hostname, 'card');
     setTier('card');
   }, [hostname]);
 
-  // Same onLoad check for the proxy iframe — if it 404s, we go to card
-  const handleProxyIframeLoad = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    try {
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      // If the proxy returned a JSON error response, detect it
-      if (doc) {
-        const body = doc.body?.textContent || '';
-        if (body.includes('"error"') && body.length < 500) {
-          domainCache.set(hostname, 'card');
-          setTier('card');
-        }
-      }
-    } catch {
-      // Cross-origin — proxy is working, DOM is live. This is success.
-    }
-  }, [hostname]);
-
   // ─────────────────────────────────────────────────────────────────────────
-  // Compute iframe src based on current tier
+  // Compute screenshot URL
   // ─────────────────────────────────────────────────────────────────────────
-  const iframeSrc = tier === 'direct' ? href : tier === 'proxy' ? buildProxyUrl(href) : '';
+  const screenshotUrl = buildScreenshotUrl(href);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
@@ -388,11 +369,11 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
             <span className="flex items-center gap-1.5 shrink-0 ml-3">
               <span className={cn(
                 'w-1.5 h-1.5 rounded-full',
-                tier === 'direct' ? 'bg-emerald-400 animate-pulse' :
-                tier === 'proxy'  ? 'bg-amber-400 animate-pulse' :
-                                    'bg-red-400'
+                tier === 'direct'     ? 'bg-emerald-400 animate-pulse' :
+                tier === 'screenshot' ? 'bg-amber-400 animate-pulse' :
+                                        'bg-red-400'
               )} />
-              {tier === 'direct' ? 'Live' : tier === 'proxy' ? 'Proxied' : 'Blocked'}
+              {tier === 'direct' ? 'Live' : tier === 'screenshot' ? 'Preview' : 'Blocked'}
             </span>
           </div>
 
@@ -402,23 +383,34 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
             {/* Invisible hover-bridge pad (16px above popover) */}
             <div className="absolute -top-4 left-0 right-0 h-4 pointer-events-auto" aria-hidden="true" />
 
-            {/* ── Tier 1 & 2: Iframe (direct or proxied) ─────────────── */}
-            {(tier === 'direct' || tier === 'proxy') && (
+            {/* ── Tier 1: Direct iframe ──────────────────────────────── */}
+            {tier === 'direct' && (
               <div
                 className="w-[1280px] h-[800px] origin-top-left"
                 style={{ transform: 'scale(0.375)' }}
               >
                 <iframe
                   ref={iframeRef}
-                  src={iframeSrc}
+                  src={href}
                   title={`Preview — ${domainName}`}
                   className="w-full h-full border-none bg-white"
                   sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                   loading="eager"
-                  onLoad={tier === 'direct' ? handleIframeLoad : handleProxyIframeLoad}
-                  onError={tier === 'proxy' ? handleProxyIframeError : undefined}
+                  onLoad={handleIframeLoad}
                 />
               </div>
+            )}
+
+            {/* ── Tier 2: Screenshot via thum.io ─────────────────────── */}
+            {tier === 'screenshot' && (
+              <img
+                key={href}
+                src={screenshotUrl}
+                alt={`Screenshot — ${domainName}`}
+                className="absolute inset-0 w-full h-full object-cover object-top"
+                onError={handleScreenshotError}
+                loading="eager"
+              />
             )}
 
             {/* ── Loading overlay (Tier 1 only) ──────────────────────── */}
