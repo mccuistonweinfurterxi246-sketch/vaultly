@@ -1,12 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export',
   basePath: '/vaultly',
   images: {
     unoptimized: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/vaultly',
+        basePath: false,
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
-

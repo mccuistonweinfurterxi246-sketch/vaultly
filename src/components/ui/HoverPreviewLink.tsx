@@ -17,18 +17,17 @@ interface HoverPreviewLinkProps {
 
 /**
  * Tier states:
- *  'direct'     — Tier 1: native iframe embed
- *  'screenshot' — Tier 2: thum.io screenshot image
- *  'card'       — Tier 3: glassmorphic fallback micro-card
+ *  'direct' — Tier 1: native iframe embed
+ *  'proxy'  — Tier 2: live DOM via /api/proxy reverse proxy
+ *  'card'   — Tier 3: glassmorphic fallback micro-card
  */
-type PreviewTier = 'direct' | 'screenshot' | 'card';
+type PreviewTier = 'direct' | 'proxy' | 'card';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Module-level session cache — survives re-mounts, shared across all instances
+// Session-level domain cache — shared across all instances, survives re-mounts
 // ─────────────────────────────────────────────────────────────────────────────
 const domainCache = new Map<string, PreviewTier>();
 
-// Domains known to block iframes — skip Tier 1 entirely
 const KNOWN_BLOCKED = new Set([
   'google.com', 'github.com', 'youtube.com', 'facebook.com',
   'twitter.com', 'x.com', 'linkedin.com', 'instagram.com',
@@ -53,17 +52,17 @@ function isKnownBlocked(hostname: string): boolean {
     [...KNOWN_BLOCKED].some(d => hostname.endsWith('.' + d));
 }
 
-function buildScreenshotUrl(href: string): string {
-  return `https://image.thum.io/get/width/1280/crop/800/maxAge/12/${href}`;
+function buildProxyUrl(href: string): string {
+  return `/vaultly/api/proxy?url=${encodeURIComponent(href)}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
-const INTENT_DELAY_MS   = 150;   // hover-intent debounce
-const CLOSE_DELAY_MS    = 300;   // hover-bridge close buffer
-const TIER1_TIMEOUT_MS  = 1200;  // hard timeout before escalating to screenshot
-const POINTER_DELAY_MS  = 380;   // wait for CSS transition before enabling clicks
+const INTENT_DELAY_MS  = 150;
+const CLOSE_DELAY_MS   = 300;
+const TIER1_TIMEOUT_MS = 1200;
+const POINTER_DELAY_MS = 380;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
@@ -75,7 +74,6 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
   popupClassName = '',
   fallbackTitle,
 }) => {
-  // ── State ───────────────────────────────────────────────────────────────
   const [isOpen, setIsOpen]                   = useState(false);
   const [tier, setTier]                       = useState<PreviewTier>('direct');
   const [isLoading, setIsLoading]             = useState(false);
@@ -83,7 +81,6 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
   const [position, setPosition]               = useState({ top: 0, left: 0 });
   const [isMounted, setIsMounted]             = useState(false);
 
-  // ── Refs ────────────────────────────────────────────────────────────────
   const anchorRef     = useRef<HTMLAnchorElement>(null);
   const popoverRef    = useRef<HTMLDivElement>(null);
   const iframeRef     = useRef<HTMLIFrameElement>(null);
@@ -93,14 +90,11 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
   const ptrTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const popoverShown  = useRef(false);
 
-  // ── Derived ─────────────────────────────────────────────────────────────
   const domainName = getDisplayDomain(href);
   const hostname   = getHostname(href);
 
-  // ── Hydration gate ──────────────────────────────────────────────────────
   useEffect(() => { setIsMounted(true); }, []);
 
-  // ── Timer cleanup on unmount ────────────────────────────────────────────
   useEffect(() => {
     return () => {
       [openTimerRef, closeTimerRef, tier1TimerRef, ptrTimerRef].forEach(r => {
@@ -109,32 +103,26 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
     };
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Popover DOM lifecycle — show/hide via native API
-  // The element ALWAYS lives in the DOM; visibility is popover-API-controlled.
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Popover DOM lifecycle ─────────────────────────────────────────────────
   useEffect(() => {
     const el = popoverRef.current;
     if (!el) return;
 
     if (isOpen) {
       if (!popoverShown.current) {
-        try { el.showPopover(); popoverShown.current = true; }
-        catch { /* element not yet reflected — safe to ignore */ }
+        try { el.showPopover(); popoverShown.current = true; } catch { /* safe */ }
       }
-      // Enable pointer-events after CSS transition finishes
       if (ptrTimerRef.current) clearTimeout(ptrTimerRef.current);
       ptrTimerRef.current = setTimeout(() => setAllowPointer(true), POINTER_DELAY_MS);
     } else {
       if (popoverShown.current) {
-        try { el.hidePopover(); popoverShown.current = false; }
-        catch { /* already hidden */ }
+        try { el.hidePopover(); popoverShown.current = false; } catch { /* safe */ }
       }
       setAllowPointer(false);
     }
   }, [isOpen]);
 
-  // ── Position engine ─────────────────────────────────────────────────────
+  // ── Position ──────────────────────────────────────────────────────────────
   const updatePosition = useCallback(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
@@ -152,7 +140,6 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
     setPosition({ top, left });
   }, []);
 
-  // Reposition on scroll/resize
   useEffect(() => {
     if (!isOpen) return;
     const h = () => updatePosition();
@@ -161,7 +148,7 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
     return () => { window.removeEventListener('resize', h); window.removeEventListener('scroll', h); };
   }, [isOpen, updatePosition]);
 
-  // ── Escape key ──────────────────────────────────────────────────────────
+  // ── Escape key ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
     const h = (e: KeyboardEvent) => {
@@ -171,34 +158,28 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
     return () => window.removeEventListener('keydown', h);
   }, [isOpen]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Tier resolver — decides which tier to start with when popover opens
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Tier resolver ─────────────────────────────────────────────────────────
   const openPopover = useCallback(() => {
     const cached = domainCache.get(hostname);
 
     if (cached) {
-      // Cache hit → instant render at resolved tier
       setTier(cached);
       setIsLoading(false);
     } else if (isKnownBlocked(hostname)) {
-      // Pre-empt: skip Tier 1 → go straight to screenshot
-      domainCache.set(hostname, 'screenshot');
-      setTier('screenshot');
+      domainCache.set(hostname, 'proxy');
+      setTier('proxy');
       setIsLoading(false);
     } else {
-      // Unknown domain → try Tier 1 (direct iframe)
       setTier('direct');
       setIsLoading(true);
 
-      // Hard 1.2s timeout → auto-escalate to Tier 2 (screenshot)
       if (tier1TimerRef.current) clearTimeout(tier1TimerRef.current);
       tier1TimerRef.current = setTimeout(() => {
         setTier(prev => {
           if (prev === 'direct') {
             setIsLoading(false);
-            domainCache.set(hostname, 'screenshot');
-            return 'screenshot';
+            domainCache.set(hostname, 'proxy');
+            return 'proxy';
           }
           return prev;
         });
@@ -209,9 +190,7 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
     setIsOpen(true);
   }, [hostname, updatePosition]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Hover Bridge timer helpers
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Hover Bridge ──────────────────────────────────────────────────────────
   const cancelClose = useCallback(() => {
     if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
   }, []);
@@ -225,27 +204,14 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
     }, CLOSE_DELAY_MS);
   }, [cancelClose]);
 
-  // ── Mouse handlers ──────────────────────────────────────────────────────
-  const handleEnterLink = useCallback(() => {
-    cancelClose();
-    if (openTimerRef.current) clearTimeout(openTimerRef.current);
-    openTimerRef.current = setTimeout(openPopover, INTENT_DELAY_MS);
-  }, [cancelClose, openPopover]);
-
-  const handleLeaveLink = useCallback(() => {
-    if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null; }
-    scheduleClose();
-  }, [scheduleClose]);
-
+  const handleEnterLink    = useCallback(() => { cancelClose(); if (openTimerRef.current) clearTimeout(openTimerRef.current); openTimerRef.current = setTimeout(openPopover, INTENT_DELAY_MS); }, [cancelClose, openPopover]);
+  const handleLeaveLink    = useCallback(() => { if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null; } scheduleClose(); }, [scheduleClose]);
   const handleEnterPopover = useCallback(() => { cancelClose(); }, [cancelClose]);
   const handleLeavePopover = useCallback(() => { scheduleClose(); }, [scheduleClose]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Iframe onLoad — cross-origin block detection
-  // ─────────────────────────────────────────────────────────────────────────
-  const handleIframeLoad = useCallback(() => {
+  // ── Iframe onLoad (Tier 1 → Tier 2 detection) ────────────────────────────
+  const handleDirectIframeLoad = useCallback(() => {
     if (tier1TimerRef.current) { clearTimeout(tier1TimerRef.current); tier1TimerRef.current = null; }
-
     const iframe = iframeRef.current;
     if (!iframe) return;
 
@@ -256,40 +222,52 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
       else {
         const len = cw.length;
         let loc = '';
-        try { loc = cw.location.href; } catch { /* cross-origin — expected */ }
+        try { loc = cw.location.href; } catch { /* cross-origin */ }
         if (len === 0 && (loc === 'about:blank' || loc === '')) isBlocked = true;
       }
     } catch {
-      // DOMException → blocked by X-Frame-Options / CSP
       isBlocked = true;
     }
 
     if (isBlocked) {
-      domainCache.set(hostname, 'screenshot');
-      setTier('screenshot');
+      domainCache.set(hostname, 'proxy');
+      setTier('proxy');
     } else {
       domainCache.set(hostname, 'direct');
     }
     setIsLoading(false);
   }, [hostname]);
 
-  // ── Screenshot error (Tier 2 → Tier 3) ─────────────────────────────────
-  const handleScreenshotError = useCallback(() => {
+  // ── Proxy iframe onLoad (Tier 2 → Tier 3 check) ──────────────────────────
+  const handleProxyIframeLoad = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (doc) {
+        const body = doc.body?.textContent || '';
+        if (body.includes('"error"') && body.length < 500) {
+          domainCache.set(hostname, 'card');
+          setTier('card');
+        }
+      }
+    } catch {
+      // cross-origin = proxy working = success
+    }
+  }, [hostname]);
+
+  const handleProxyIframeError = useCallback(() => {
     domainCache.set(hostname, 'card');
     setTier('card');
   }, [hostname]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Compute screenshot URL
-  // ─────────────────────────────────────────────────────────────────────────
-  const screenshotUrl = buildScreenshotUrl(href);
+  const iframeSrc = tier === 'direct' ? href : tier === 'proxy' ? buildProxyUrl(href) : '';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Hardware-accelerated popover animations via @starting-style */}
       <style dangerouslySetInnerHTML={{ __html: `
         .hvr-popover {
           position: absolute;
@@ -316,7 +294,6 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
         }
       `}} />
 
-      {/* ── Anchor link ──────────────────────────────────────────────── */}
       <a
         ref={anchorRef}
         href={href}
@@ -337,7 +314,6 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
         {children}
       </a>
 
-      {/* ── Popover (always in DOM after hydration) ──────────────────── */}
       {isMounted && createPortal(
         <div
           ref={popoverRef}
@@ -353,7 +329,7 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
             popupClassName
           )}
         >
-          {/* ── Header ───────────────────────────────────────────────── */}
+          {/* Header */}
           <div className="flex shrink-0 items-center justify-between px-4 h-8
                           bg-white/5 border-b border-white/10
                           text-[10px] font-mono text-text-muted select-none">
@@ -369,51 +345,40 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
             <span className="flex items-center gap-1.5 shrink-0 ml-3">
               <span className={cn(
                 'w-1.5 h-1.5 rounded-full',
-                tier === 'direct'     ? 'bg-emerald-400 animate-pulse' :
-                tier === 'screenshot' ? 'bg-amber-400 animate-pulse' :
-                                        'bg-red-400'
+                tier === 'direct' ? 'bg-emerald-400 animate-pulse' :
+                tier === 'proxy'  ? 'bg-amber-400 animate-pulse' :
+                                    'bg-red-400'
               )} />
-              {tier === 'direct' ? 'Live' : tier === 'screenshot' ? 'Preview' : 'Blocked'}
+              {tier === 'direct' ? 'Live' : tier === 'proxy' ? 'Proxied' : 'Blocked'}
             </span>
           </div>
 
-          {/* ── Content area ─────────────────────────────────────────── */}
+          {/* Content */}
           <div className="relative flex-grow w-full overflow-hidden bg-[hsl(var(--background))]">
 
-            {/* Invisible hover-bridge pad (16px above popover) */}
+            {/* Hover bridge invisible pad */}
             <div className="absolute -top-4 left-0 right-0 h-4 pointer-events-auto" aria-hidden="true" />
 
-            {/* ── Tier 1: Direct iframe ──────────────────────────────── */}
-            {tier === 'direct' && (
+            {/* Tier 1 & 2: iframe (direct or proxied) */}
+            {(tier === 'direct' || tier === 'proxy') && (
               <div
                 className="w-[1280px] h-[800px] origin-top-left"
                 style={{ transform: 'scale(0.375)' }}
               >
                 <iframe
                   ref={iframeRef}
-                  src={href}
+                  src={iframeSrc}
                   title={`Preview — ${domainName}`}
                   className="w-full h-full border-none bg-white"
                   sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                   loading="eager"
-                  onLoad={handleIframeLoad}
+                  onLoad={tier === 'direct' ? handleDirectIframeLoad : handleProxyIframeLoad}
+                  onError={tier === 'proxy' ? handleProxyIframeError : undefined}
                 />
               </div>
             )}
 
-            {/* ── Tier 2: Screenshot via thum.io ─────────────────────── */}
-            {tier === 'screenshot' && (
-              <img
-                key={href}
-                src={screenshotUrl}
-                alt={`Screenshot — ${domainName}`}
-                className="absolute inset-0 w-full h-full object-cover object-top"
-                onError={handleScreenshotError}
-                loading="eager"
-              />
-            )}
-
-            {/* ── Loading overlay (Tier 1 only) ──────────────────────── */}
+            {/* Loading overlay */}
             {isLoading && tier === 'direct' && (
               <div className="absolute inset-0 z-20 flex flex-col gap-3 items-center justify-center
                               bg-[hsl(var(--surface))]">
@@ -427,7 +392,7 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
               </div>
             )}
 
-            {/* ── Tier 3: Glassmorphic fallback card ──────────────────── */}
+            {/* Tier 3: Glassmorphic fallback */}
             {tier === 'card' && (
               <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6
                               bg-[hsl(var(--surface))]/90 backdrop-blur-xl text-center">
