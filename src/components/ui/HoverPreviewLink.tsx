@@ -22,8 +22,9 @@ const PREVIEW_SCALE = 0.375;
 const SOURCE_WIDTH = Math.round(PREVIEW_WIDTH / PREVIEW_SCALE);
 const SOURCE_HEIGHT = Math.round((PREVIEW_HEIGHT - 32) / PREVIEW_SCALE);
 const INTENT_DELAY_MS = 140;
-const CLOSE_DELAY_MS = 220;
-const POINTER_DELAY_MS = 250;
+const PREVIEW_TIMEOUT_MS = 1_200;
+const CLOSE_DELAY_MS = 300;
+const POINTER_DELAY_MS = 300;
 
 const blockedDomainCache = new Map<string, PreviewTier>();
 
@@ -63,6 +64,7 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const popoverVisibleRef = useRef(false);
 
@@ -111,6 +113,7 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
       setOpen(false);
       setLoading(false);
       setPointerEnabled(false);
+      clearTimer(previewTimerRef);
       clearTimer(pointerTimerRef);
     }, CLOSE_DELAY_MS);
   }, [clearTimer]);
@@ -134,8 +137,13 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
       setLoading(true);
     }
 
+    clearTimer(previewTimerRef);
+    previewTimerRef.current = setTimeout(() => {
+      setLoading(false);
+    }, PREVIEW_TIMEOUT_MS);
+
     setOpen(true);
-  }, [cancelClose, hostname, updatePosition]);
+  }, [cancelClose, clearTimer, hostname, updatePosition]);
 
   const scheduleOpen = useCallback(() => {
     cancelClose();
@@ -149,15 +157,17 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
   }, [clearTimer, closePreview]);
 
   const handleProxyLoad = useCallback(() => {
+    clearTimer(previewTimerRef);
     blockedDomainCache.set(hostname, 'proxy');
     setLoading(false);
-  }, [hostname]);
+  }, [clearTimer, hostname]);
 
   const handleProxyError = useCallback(() => {
+    clearTimer(previewTimerRef);
     blockedDomainCache.set(hostname, 'card');
     setTier('card');
     setLoading(false);
-  }, [hostname]);
+  }, [clearTimer, hostname]);
 
   useEffect(() => {
     setMounted(true);
@@ -165,6 +175,7 @@ export const HoverPreviewLink: React.FC<HoverPreviewLinkProps> = ({
     return () => {
       clearTimer(openTimerRef);
       clearTimer(closeTimerRef);
+      clearTimer(previewTimerRef);
       clearTimer(pointerTimerRef);
     };
   }, [clearTimer]);
