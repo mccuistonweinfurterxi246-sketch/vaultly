@@ -2,6 +2,8 @@
 import React from 'react';
 import type { Bookmark, ContentType } from '../../utils/mockData';
 import { useBookmarkStore } from '../../store/useBookmarkStore';
+import { HoverCard } from './HoverCard';
+import { HoverPreviewLink } from './HoverPreviewLink';
 import { 
   Heart, 
   Trash2, 
@@ -196,9 +198,9 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
               )}
             </div>
             <h3 className="text-xs font-semibold text-text-main group-hover:text-brand transition-colors truncate">
-              <a href={bookmark.url} target="_blank" rel="noopener noreferrer" onClick={handleLinkClick}>
+              <HoverPreviewLink href={bookmark.url} fallbackTitle={bookmark.title}>
                 {bookmark.title}
-              </a>
+              </HoverPreviewLink>
             </h3>
           </div>
         </div>
@@ -248,9 +250,9 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
           </div>
 
           <h3 className="text-xs font-semibold text-text-main leading-snug group-hover:text-brand transition-colors line-clamp-2">
-            <a href={bookmark.url} target="_blank" rel="noopener noreferrer" onClick={handleLinkClick}>
+            <HoverPreviewLink href={bookmark.url} fallbackTitle={bookmark.title}>
               {bookmark.title}
-            </a>
+            </HoverPreviewLink>
           </h3>
         </div>
 
@@ -264,30 +266,18 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
     );
   }
 
-  // 3. RICH GRID VIEW MODE (Default)
   return (
-    <article className="group bg-surface border border-border-custom hover:border-brand/40 rounded-xl overflow-hidden flex flex-col h-[320px] transition-all duration-200 hover:shadow-sm">
+    <HoverCard className="h-[320px]">
+      <article className="group bg-surface border border-border-custom hover:border-brand/40 rounded-xl overflow-hidden flex flex-col h-full transition-all duration-200 hover:shadow-sm">
       {/* Cover Image or Logo-Centric Header */}
       <div 
         className="relative aspect-[16/9] w-full overflow-hidden flex items-center justify-center bg-surface-muted border-b border-border-custom/80"
       >
-        {/* Dynamic Blurred Background (Auto Color from Icon) */}
-        {bookmark.faviconUrl ? (
-          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden flex items-center justify-center opacity-40 dark:opacity-20">
-            <img
-              src={bookmark.faviconUrl}
-              alt=""
-              className="w-full h-full object-cover scale-[3] blur-[40px]"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          </div>
-        ) : (
-          /* Fallback background glow */
-          <div 
-            className="absolute w-32 h-32 rounded-full filter blur-2xl opacity-20 z-0 pointer-events-none"
-            style={{ backgroundColor: collection?.color || 'var(--accent)' }}
-          />
-        )}
+        {/* Subtle background collection glow (pure CSS, no image files) */}
+        <div 
+          className="absolute w-28 h-28 rounded-full filter blur-2xl opacity-20 z-0 pointer-events-none"
+          style={{ backgroundColor: collection?.color || 'var(--accent)' }}
+        />
 
         {/* Floating Glassmorphic Logo Container */}
         <div className="relative z-10 w-16 h-16 rounded-2xl bg-surface/90 backdrop-blur-md border border-border-custom/80 shadow-md flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
@@ -359,9 +349,9 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
 
           {/* Title */}
           <h3 className="text-xs font-semibold text-text-main leading-snug group-hover:text-brand transition-colors line-clamp-2">
-            <a href={bookmark.url} target="_blank" rel="noopener noreferrer" onClick={handleLinkClick}>
+            <HoverPreviewLink href={bookmark.url} fallbackTitle={bookmark.title}>
               {bookmark.title}
-            </a>
+            </HoverPreviewLink>
           </h3>
 
           {/* Description */}
@@ -420,5 +410,6 @@ export const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark }) => {
         </div>
       </div>
     </article>
-  );
+  </HoverCard>
+);
 };

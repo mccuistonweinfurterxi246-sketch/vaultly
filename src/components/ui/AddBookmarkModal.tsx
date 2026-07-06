@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useBookmarkStore } from '../../store/useBookmarkStore';
 import type { ContentType } from '../../utils/mockData';
 import { X, Sparkles, Loader2, Link2, Copy, FileText, Check, AlertCircle, Layers, Import } from 'lucide-react';
+import { AnimatedDialog } from './AnimatedDialog';
 
 interface AddBookmarkModalProps {
   isOpen: boolean;
@@ -93,8 +94,6 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({ isOpen, onCl
 
     return () => clearTimeout(timer);
   }, [url]);
-
-  if (!isOpen) return null;
 
   // Submit Single Link
   const handleSingleSubmit = (e: React.FormEvent) => {
@@ -225,318 +224,275 @@ export const AddBookmarkModal: React.FC<AddBookmarkModalProps> = ({ isOpen, onCl
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Premium backdrop blur */}
-      <div 
-        className="absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-300"
-        onClick={onClose}
-      />
-
-      {/* Breathtaking Futuristic Modal Card */}
-      <div className="relative w-full max-w-lg bg-surface border border-border-custom/80 rounded-3xl shadow-2xl overflow-hidden z-10 transition-all duration-300 transform scale-100 animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Decorative Top Ambient Light */}
-        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-brand to-transparent opacity-80" />
-
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border-custom bg-surface-muted/30">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-brand-soft text-brand rounded-xl shadow-xs">
-              <Sparkles size={18} className="animate-pulse" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-text-main tracking-tight">Add to Vaultly</h2>
-              <p className="text-[10px] text-text-muted mt-0.5">Save resources to your premium digital shelf.</p>
-            </div>
+    <AnimatedDialog isOpen={isOpen} onClose={onClose}>
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b border-border-custom bg-surface-muted/30">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-brand-soft text-brand rounded-xl shadow-xs">
+            <Sparkles size={18} className="animate-pulse" />
           </div>
-          <button 
-            onClick={onClose}
-            className="text-text-muted hover:text-text-main p-1.5 rounded-xl hover:bg-surface-muted border border-transparent hover:border-border-custom/60 transition-all duration-150"
+          <div>
+            <h2 className="text-sm font-bold text-text-main tracking-tight">Add to Vaultly</h2>
+            <p className="text-[10px] text-text-muted mt-0.5">Save resources to your premium digital shelf.</p>
+          </div>
+        </div>
+        <button 
+          onClick={onClose}
+          className="text-text-muted hover:text-text-main p-1.5 rounded-xl hover:bg-surface-muted border border-transparent hover:border-border-custom/60 transition-all duration-150"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Tab Switcher */}
+      <div className="px-6 pt-4">
+        <div className="flex bg-surface-muted border border-border-custom p-1 rounded-2xl">
+          <button
+            onClick={() => { setActiveTab('single'); setBulkAddedCount(null); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+              activeTab === 'single'
+                ? 'bg-surface text-brand shadow-sm border border-border-custom/60'
+                : 'text-text-muted hover:text-text-main'
+            }`}
           >
-            <X size={16} />
+            <Link2 size={13} />
+            <span>Single Link</span>
+          </button>
+          <button
+            onClick={() => { setActiveTab('bulk'); setBulkAddedCount(null); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+              activeTab === 'bulk'
+                ? 'bg-surface text-brand shadow-sm border border-border-custom/60'
+                : 'text-text-muted hover:text-text-main'
+            }`}
+          >
+            <Import size={13} />
+            <span>Bulk Import</span>
           </button>
         </div>
+      </div>
 
-        {/* Tab Switcher */}
-        <div className="px-6 pt-4">
-          <div className="flex bg-surface-muted border border-border-custom p-1 rounded-2xl">
+      {/* Content tabs */}
+      {activeTab === 'single' ? (
+        <form onSubmit={handleSingleSubmit} className="p-6 space-y-4">
+          <div className="space-y-1.5">
+            <label htmlFor="url" className="text-xs font-bold text-text-muted">URL Address</label>
+            <div className="relative">
+              <input
+                type="url"
+                id="url"
+                required
+                placeholder="https://example.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className="w-full pl-3 pr-8 py-2 bg-surface-muted border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
+              />
+              {isScraping && (
+                <span className="absolute inset-y-0 right-3 flex items-center text-brand">
+                  <Loader2 size={14} className="animate-spin" />
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="title" className="text-xs font-bold text-text-muted">Title</label>
+            <input
+              type="text"
+              id="title"
+              required
+              placeholder="e.g. Acme Website"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 bg-surface-muted border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="description" className="text-xs font-bold text-text-muted">Description</label>
+            <textarea
+              id="description"
+              placeholder="Provide a quick description..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 bg-surface-muted border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label htmlFor="collection" className="text-xs font-bold text-text-muted">Collection</label>
+              <select
+                id="collection"
+                value={collectionId}
+                onChange={(e) => setCollectionId(e.target.value)}
+                className="w-full px-3 py-2 bg-surface-muted border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
+              >
+                {collections.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="type" className="text-xs font-bold text-text-muted">Content Type</label>
+              <select
+                id="type"
+                value={contentType}
+                onChange={(e) => setContentType(e.target.value as ContentType)}
+                className="w-full px-3 py-2 bg-surface-muted border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
+              >
+                {typesList.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center">
+              <label htmlFor="tags" className="text-xs font-bold text-text-muted">Tags</label>
+              <span className="text-[9px] text-text-muted/65 font-mono">Comma separated values</span>
+            </div>
+            <input
+              type="text"
+              id="tags"
+              placeholder="dev, utility, design..."
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              className="w-full px-3 py-2 bg-surface-muted border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-1.5">
+            <input
+              type="checkbox"
+              id="readLater"
+              checked={readLater}
+              onChange={(e) => setReadLater(e.target.checked)}
+              className="w-4 h-4 rounded text-brand border-border-custom focus:ring-brand focus:ring-opacity-25 ml-1 cursor-pointer"
+            />
+            <label htmlFor="readLater" className="text-xs text-text-muted select-none cursor-pointer font-medium">
+              Mark as <span className="text-text-main font-bold">Read Later</span>
+            </label>
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3 border-t border-border-custom">
             <button
-              onClick={() => { setActiveTab('single'); setBulkAddedCount(null); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                activeTab === 'single'
-                  ? 'bg-surface text-brand shadow-sm border border-border-custom/60'
-                  : 'text-text-muted hover:text-text-main'
-              }`}
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-border-custom text-text-main hover:bg-surface-muted rounded-xl text-xs font-semibold transition-all duration-150"
             >
-              <Link2 size={14} />
-              <span>Single Link</span>
+              Cancel
             </button>
             <button
-              onClick={() => { setActiveTab('bulk'); setBulkAddedCount(null); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                activeTab === 'bulk'
-                  ? 'bg-surface text-brand shadow-sm border border-border-custom/60'
-                  : 'text-text-muted hover:text-text-main'
-              }`}
+              type="submit"
+              className="px-5 py-2 bg-brand hover:bg-brand/90 text-white rounded-xl text-xs font-semibold transition-all duration-150 active:scale-95 cursor-pointer shadow-md shadow-brand/10"
             >
-              <Import size={14} />
-              <span>Bulk Import</span>
+              Save Bookmark
             </button>
           </div>
-        </div>
-
-        {/* TAB 1: SINGLE LINK FORM */}
-        {activeTab === 'single' && (
-          <form onSubmit={handleSingleSubmit} className="p-6 space-y-4">
-            {/* URL Input */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                Link URL *
-              </label>
-              <div className="relative group">
-                <input
-                  type="url"
+        </form>
+      ) : (
+        <form onSubmit={handleBulkSubmit} className="p-6 space-y-4">
+          {bulkAddedCount !== null ? (
+            <div className="flex flex-col items-center justify-center py-10 space-y-3">
+              <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-500/25">
+                <Check size={24} />
+              </div>
+              <div className="text-center">
+                <h3 className="text-sm font-bold text-text-main">Bulk Import Completed</h3>
+                <p className="text-xs text-text-muted mt-1">Successfully saved {bulkAddedCount} bookmarks!</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label htmlFor="bulkInput" className="text-xs font-bold text-text-muted">Links List</label>
+                  <span className="text-[9px] text-text-muted/65 font-mono">One link per line or comma separated</span>
+                </div>
+                <textarea
+                  id="bulkInput"
                   required
-                  placeholder="https://example.com"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  className="w-full pl-3 pr-10 py-2.5 bg-surface border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all placeholder-text-muted/50"
+                  placeholder="https://github.com&#10;https://google.com, https://twitter.com"
+                  value={bulkInput}
+                  onChange={(e) => setBulkInput(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 bg-surface-muted border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all resize-none leading-relaxed"
                 />
-                {isScraping ? (
-                  <span className="absolute inset-y-0 right-3 flex items-center text-brand">
-                    <Loader2 size={14} className="animate-spin" />
-                  </span>
-                ) : (
-                  <Link2 size={14} className="absolute right-3 top-3 text-text-muted/50 group-focus-within:text-brand transition-colors" />
-                )}
-              </div>
-            </div>
-
-            {/* Title Input */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                Title *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Supabase - Next-gen Backend"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2.5 bg-surface border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all placeholder-text-muted/50"
-              />
-            </div>
-
-            {/* Description Input */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                Description
-              </label>
-              <textarea
-                placeholder="Summary of the link..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2.5 bg-surface border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all placeholder-text-muted/50 resize-none leading-relaxed"
-              />
-            </div>
-
-            {/* Collection & Content Type Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                  Collection
-                </label>
-                <select
-                  value={collectionId}
-                  onChange={(e) => setCollectionId(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-surface border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand transition-all cursor-pointer"
-                >
-                  {collections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                  Content Type
-                </label>
-                <select
-                  value={contentType}
-                  onChange={(e) => setContentType(e.target.value as ContentType)}
-                  className="w-full px-3 py-2.5 bg-surface border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand transition-all cursor-pointer"
-                >
-                  {typesList.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Tags Input */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                Tags (comma separated)
-              </label>
-              <input
-                type="text"
-                placeholder="react, library, tools"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                className="w-full px-3 py-2.5 bg-surface border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all placeholder-text-muted/50"
-              />
-            </div>
-
-            {/* Read Later Checkbox */}
-            <div className="flex items-center gap-2.5 py-1.5 px-1 bg-surface-muted/40 border border-border-custom/50 rounded-xl">
-              <input
-                type="checkbox"
-                id="readLater"
-                checked={readLater}
-                onChange={(e) => setReadLater(e.target.checked)}
-                className="w-4 h-4 rounded text-brand border-border-custom focus:ring-brand focus:ring-opacity-25 ml-2 cursor-pointer"
-              />
-              <label htmlFor="readLater" className="text-xs text-text-muted select-none cursor-pointer font-medium">
-                Mark as <span className="text-text-main font-bold">Read Later</span>
-              </label>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-4 flex justify-end gap-3 border-t border-border-custom">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-border-custom text-text-main hover:bg-surface-muted rounded-xl text-xs font-semibold transition-all duration-150"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 bg-brand hover:bg-brand/90 text-white rounded-xl text-xs font-semibold transition-all duration-150 active:scale-95 cursor-pointer shadow-md shadow-brand/10"
-              >
-                Save Link
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* TAB 2: BULK IMPORT FORM */}
-        {activeTab === 'bulk' && (
-          <form onSubmit={handleBulkSubmit} className="p-6 space-y-4">
-            {bulkAddedCount !== null ? (
-              /* Satisfaction Bulk Success Message */
-              <div className="py-8 flex flex-col items-center justify-center text-center space-y-3 animate-in fade-in zoom-in-95 duration-200">
-                <div className="p-4 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
-                  <Check size={32} className="animate-bounce" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-text-main">Bulk Import Successful!</h3>
-                  <p className="text-xs text-text-muted">
-                    Successfully added <span className="text-emerald-600 font-bold">{bulkAddedCount}</span> links to your shelf.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Bulk Textarea */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                      Paste Website Links *
-                    </label>
-                    <span className="text-[10px] text-text-muted font-medium">One link per line or comma-separated</span>
-                  </div>
-                  <textarea
-                    required
-                    placeholder="https://google.com&#10;https://github.com&#10;youtube.com"
-                    value={bulkInput}
-                    onChange={(e) => setBulkInput(e.target.value)}
-                    rows={6}
-                    className="w-full px-3 py-2.5 bg-surface border border-border-custom rounded-xl text-xs text-text-main font-mono placeholder-text-muted/40 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all leading-relaxed"
-                  />
+                  <label htmlFor="bulkCollection" className="text-xs font-bold text-text-muted">Collection</label>
+                  <select
+                    id="bulkCollection"
+                    value={bulkCollectionId}
+                    onChange={(e) => setBulkCollectionId(e.target.value)}
+                    className="w-full px-3 py-2 bg-surface-muted border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
+                  >
+                    {collections.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Collection & Bulk Options */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                      Target Collection
-                    </label>
-                    <select
-                      value={bulkCollectionId}
-                      onChange={(e) => setBulkCollectionId(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-surface border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand transition-all cursor-pointer"
-                    >
-                      {collections.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                      Tags for all links
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="imported, quick"
-                      value={bulkTagsInput}
-                      onChange={(e) => setBulkTagsInput(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-surface border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all placeholder-text-muted/50"
-                    />
-                  </div>
-                </div>
-
-                {/* Read Later Checkbox */}
-                <div className="flex items-center gap-2.5 py-1.5 px-1 bg-surface-muted/40 border border-border-custom/50 rounded-xl">
+                <div className="space-y-1.5">
+                  <label htmlFor="bulkTags" className="text-xs font-bold text-text-muted">Common Tags</label>
                   <input
-                    type="checkbox"
-                    id="bulkReadLater"
-                    checked={bulkReadLater}
-                    onChange={(e) => setBulkReadLater(e.target.checked)}
-                    className="w-4 h-4 rounded text-brand border-border-custom focus:ring-brand focus:ring-opacity-25 ml-2 cursor-pointer"
+                    type="text"
+                    id="bulkTags"
+                    placeholder="imported, quick..."
+                    value={bulkTagsInput}
+                    onChange={(e) => setBulkTagsInput(e.target.value)}
+                    className="w-full px-3 py-2 bg-surface-muted border border-border-custom rounded-xl text-xs text-text-main focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
                   />
-                  <label htmlFor="bulkReadLater" className="text-xs text-text-muted select-none cursor-pointer font-medium">
-                    Mark all as <span className="text-text-main font-bold">Read Later</span>
-                  </label>
                 </div>
+              </div>
 
-                {/* Helper info */}
-                <div className="p-3 bg-brand-soft/30 border border-brand/10 rounded-xl text-[10px] text-text-muted flex items-start gap-2 leading-relaxed">
-                  <AlertCircle size={14} className="text-brand shrink-0 mt-0.5" />
-                  <span>
-                    We will automatically parse all URLs, extract their domain names to guess their categories, and generate high-resolution favicon icons for each site!
-                  </span>
-                </div>
+              <div className="flex items-center gap-2 pt-1.5">
+                <input
+                  type="checkbox"
+                  id="bulkReadLater"
+                  checked={bulkReadLater}
+                  onChange={(e) => setBulkReadLater(e.target.checked)}
+                  className="w-4 h-4 rounded text-brand border-border-custom focus:ring-brand focus:ring-opacity-25 ml-2 cursor-pointer"
+                />
+                <label htmlFor="bulkReadLater" className="text-xs text-text-muted select-none cursor-pointer font-medium">
+                  Mark all as <span className="text-text-main font-bold">Read Later</span>
+                </label>
+              </div>
 
-                {/* Actions */}
-                <div className="pt-4 flex justify-end gap-3 border-t border-border-custom">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-4 py-2 border border-border-custom text-text-main hover:bg-surface-muted rounded-xl text-xs font-semibold transition-all duration-150"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-brand hover:bg-brand/90 text-white rounded-xl text-xs font-semibold transition-all duration-150 active:scale-95 cursor-pointer shadow-md shadow-brand/10"
-                  >
-                    Import All Links
-                  </button>
-                </div>
-              </>
-            )}
-          </form>
-        )}
-      </div>
-    </div>
+              {/* Helper info */}
+              <div className="p-3 bg-brand-soft/30 border border-brand/10 rounded-xl text-[10px] text-text-muted flex items-start gap-2 leading-relaxed">
+                <AlertCircle size={14} className="text-brand shrink-0 mt-0.5" />
+                <span>
+                  We will automatically parse all URLs, extract their domain names to guess their categories, and generate high-resolution favicon icons for each site!
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-4 flex justify-end gap-3 border-t border-border-custom">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 border border-border-custom text-text-main hover:bg-surface-muted rounded-xl text-xs font-semibold transition-all duration-150"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-brand hover:bg-brand/90 text-white rounded-xl text-xs font-semibold transition-all duration-150 active:scale-95 cursor-pointer shadow-md shadow-brand/10"
+                >
+                  Import All Links
+                </button>
+              </div>
+            </>
+          )}
+        </form>
+      )}
+    </AnimatedDialog>
   );
 };

@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${manrope.className} antialiased`}>
+      <body className={`${manrope.className} antialiased`} suppressHydrationWarning>
         {children}
       </body>
     </html>

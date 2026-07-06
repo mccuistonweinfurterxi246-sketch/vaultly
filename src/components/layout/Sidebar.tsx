@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useBookmarkStore } from '../../store/useBookmarkStore';
 import * as Icons from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -77,17 +78,24 @@ export const Sidebar: React.FC = () => {
           {/* All Bookmarks */}
           <button
             onClick={() => setSelectedCollectionId('all')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all duration-200 ${
+            className={`relative w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors duration-200 select-none ${
               selectedCollectionId === 'all' && !selectedTag
-                ? 'bg-brand-soft text-brand font-semibold'
-                : 'text-text-muted hover:bg-surface-muted hover:text-text-main'
+                ? 'text-brand font-semibold'
+                : 'text-text-muted hover:bg-surface-muted/40 hover:text-text-main'
             }`}
           >
-            <div className="flex items-center gap-2.5">
+            {selectedCollectionId === 'all' && !selectedTag && (
+              <motion.div
+                layoutId="sidebar-active"
+                className="absolute inset-0 bg-brand-soft rounded-lg"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+            <div className="flex items-center gap-2.5 relative z-10">
               <Icons.Inbox size={16} />
               <span>All Bookmarks</span>
             </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted relative z-10">
               {totalCount}
             </span>
           </button>
@@ -95,17 +103,24 @@ export const Sidebar: React.FC = () => {
           {/* Favorites */}
           <button
             onClick={() => setSelectedCollectionId('favorites')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all duration-200 ${
+            className={`relative w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors duration-200 select-none ${
               selectedCollectionId === 'favorites' && !selectedTag
-                ? 'bg-brand-soft text-brand font-semibold'
-                : 'text-text-muted hover:bg-surface-muted hover:text-text-main'
+                ? 'text-brand font-semibold'
+                : 'text-text-muted hover:bg-surface-muted/40 hover:text-text-main'
             }`}
           >
-            <div className="flex items-center gap-2.5">
+            {selectedCollectionId === 'favorites' && !selectedTag && (
+              <motion.div
+                layoutId="sidebar-active"
+                className="absolute inset-0 bg-brand-soft rounded-lg"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+            <div className="flex items-center gap-2.5 relative z-10">
               <Icons.Heart size={16} />
               <span>Favorites</span>
             </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted relative z-10">
               {favoriteCount}
             </span>
           </button>
@@ -113,17 +128,24 @@ export const Sidebar: React.FC = () => {
           {/* Read Later */}
           <button
             onClick={() => setSelectedCollectionId('read-later')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all duration-200 ${
+            className={`relative w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors duration-200 select-none ${
               selectedCollectionId === 'read-later' && !selectedTag
-                ? 'bg-brand-soft text-brand font-semibold'
-                : 'text-text-muted hover:bg-surface-muted hover:text-text-main'
+                ? 'text-brand font-semibold'
+                : 'text-text-muted hover:bg-surface-muted/40 hover:text-text-main'
             }`}
           >
-            <div className="flex items-center gap-2.5">
+            {selectedCollectionId === 'read-later' && !selectedTag && (
+              <motion.div
+                layoutId="sidebar-active"
+                className="absolute inset-0 bg-brand-soft rounded-lg"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+            <div className="flex items-center gap-2.5 relative z-10">
               <Icons.Clock size={16} />
               <span>Read Later</span>
             </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted relative z-10">
               {readLaterCount}
             </span>
           </button>
@@ -131,17 +153,24 @@ export const Sidebar: React.FC = () => {
           {/* Archive */}
           <button
             onClick={() => setSelectedCollectionId('archive')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all duration-200 ${
+            className={`relative w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors duration-200 select-none ${
               selectedCollectionId === 'archive' && !selectedTag
-                ? 'bg-brand-soft text-brand font-semibold'
-                : 'text-text-muted hover:bg-surface-muted hover:text-text-main'
+                ? 'text-brand font-semibold'
+                : 'text-text-muted hover:bg-surface-muted/40 hover:text-text-main'
             }`}
           >
-            <div className="flex items-center gap-2.5">
+            {selectedCollectionId === 'archive' && !selectedTag && (
+              <motion.div
+                layoutId="sidebar-active"
+                className="absolute inset-0 bg-brand-soft rounded-lg"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+            <div className="flex items-center gap-2.5 relative z-10">
               <Icons.Archive size={16} />
               <span>Archive</span>
             </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted relative z-10">
               {archivedCount}
             </span>
           </button>
@@ -149,17 +178,24 @@ export const Sidebar: React.FC = () => {
           {/* Notes */}
           <button
             onClick={() => setSelectedCollectionId('notes')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all duration-200 ${
+            className={`relative w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors duration-200 select-none ${
               selectedCollectionId === 'notes' && !selectedTag
-                ? 'bg-brand-soft text-brand font-semibold'
-                : 'text-text-muted hover:bg-surface-muted hover:text-text-main'
+                ? 'text-brand font-semibold'
+                : 'text-text-muted hover:bg-surface-muted/40 hover:text-text-main'
             }`}
           >
-            <div className="flex items-center gap-2.5">
+            {selectedCollectionId === 'notes' && !selectedTag && (
+              <motion.div
+                layoutId="sidebar-active"
+                className="absolute inset-0 bg-brand-soft rounded-lg"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+            <div className="flex items-center gap-2.5 relative z-10">
               <Icons.FileText size={16} />
               <span>Quick Notes</span>
             </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted text-text-muted relative z-10">
               {notesCount}
             </span>
           </button>
@@ -194,21 +230,29 @@ export const Sidebar: React.FC = () => {
           <div className="space-y-0.5">
             {collections.map((col) => {
               const count = bookmarks.filter((b) => b.collectionId === col.id && !b.isArchived).length;
+              const isColActive = selectedCollectionId === col.id && !selectedTag;
               return (
                 <button
                   key={col.id}
                   onClick={() => setSelectedCollectionId(col.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all duration-200 ${
-                    selectedCollectionId === col.id && !selectedTag
-                      ? 'bg-surface-muted text-text-main font-semibold border border-border-custom'
-                      : 'text-text-muted hover:bg-surface-muted/60 border border-transparent'
+                  className={`relative w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors duration-200 select-none ${
+                    isColActive
+                      ? 'text-brand font-semibold'
+                      : 'text-text-muted hover:bg-surface-muted/40 hover:text-text-main'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  {isColActive && (
+                    <motion.div
+                      layoutId="sidebar-active"
+                      className="absolute inset-0 bg-brand-soft rounded-lg"
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <div className="flex items-center gap-2.5 min-w-0 relative z-10">
                     {renderIcon(col.iconName, col.color)}
                     <span className="truncate">{col.name}</span>
                   </div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted/50 text-text-muted/80">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-muted/50 text-text-muted/80 relative z-10">
                     {count}
                   </span>
                 </button>
